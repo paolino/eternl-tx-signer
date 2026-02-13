@@ -6,11 +6,14 @@
         "core": {
           "dependencies": [
             "aff",
+            "arrays",
             "console",
             "effect",
             "either",
             "exceptions",
+            "foldable-traversable",
             "halogen",
+            "integers",
             "maybe",
             "prelude",
             "web-dom",

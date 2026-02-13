@@ -11,6 +11,9 @@ package:
     - maybe
     - either
     - exceptions
+    - arrays
+    - integers
+    - foldable-traversable
   bundle:
     module: Main
     outfile: dist/index.js
