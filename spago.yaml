@@ -1,0 +1,20 @@
+package:
+  name: eternl-tx-signer
+  dependencies:
+    - prelude
+    - effect
+    - aff
+    - console
+    - halogen
+    - web-html
+    - web-dom
+    - maybe
+  bundle:
+    module: Main
+    outfile: dist/index.js
+    platform: browser
+    type: app
+
+workspace:
+  packageSet:
+    registry: 72.1.0
