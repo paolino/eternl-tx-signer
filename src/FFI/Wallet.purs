@@ -11,6 +11,8 @@ module FFI.Wallet
   , getUnusedAddresses
   , getChangeAddress
   , getRewardAddresses
+  , signData
+  , submitTx
   ) where
 
 import Prelude
@@ -78,6 +80,21 @@ foreign import getRewardAddressesImpl
   :: WalletApi
   -> (Error -> Effect Unit)
   -> (Array String -> Effect Unit)
+  -> Effect Unit
+
+foreign import signDataImpl
+  :: WalletApi
+  -> String
+  -> String
+  -> (Error -> Effect Unit)
+  -> (String -> Effect Unit)
+  -> Effect Unit
+
+foreign import submitTxImpl
+  :: WalletApi
+  -> String
+  -> (Error -> Effect Unit)
+  -> (String -> Effect Unit)
   -> Effect Unit
 
 -- | Enable the Eternl wallet and obtain an API handle.
@@ -150,4 +167,22 @@ getRewardAddresses api = makeAff \cb -> do
   getRewardAddressesImpl api
     (\err -> cb (Left err))
     (\as -> cb (Right as))
+  pure mempty
+
+-- | Sign arbitrary data (CIP-8). Returns JSON string
+-- | of the DataSignature {signature, key}.
+signData :: WalletApi -> String -> String -> Aff String
+signData api addr payload = makeAff \cb -> do
+  signDataImpl api addr payload
+    (\err -> cb (Left err))
+    (\sig -> cb (Right sig))
+  pure mempty
+
+-- | Submit a fully-signed transaction CBOR hex.
+-- | Returns the transaction hash.
+submitTx :: WalletApi -> String -> Aff String
+submitTx api cbor = makeAff \cb -> do
+  submitTxImpl api cbor
+    (\err -> cb (Left err))
+    (\h -> cb (Right h))
   pure mempty
