@@ -8,6 +8,8 @@
             "aff",
             "console",
             "effect",
+            "either",
+            "exceptions",
             "halogen",
             "maybe",
             "prelude",
