@@ -139,8 +139,15 @@ render state =
     [ HH.h1_ [ HH.text "CIP-30" ]
     , HH.p
         [ HP.class_ (HH.ClassName "subtitle") ]
-        [ HH.text
-            "Cardano dApp-Wallet Web Bridge"
+        [ HH.text "Cardano dApp-Wallet Web Bridge "
+        , HH.a
+            [ HP.href
+                "https://github.com/paolino/eternl-tx-signer"
+            , HP.target "_blank"
+            , HP.class_
+                (HH.ClassName "gh-link")
+            ]
+            [ HH.text "GitHub" ]
         ]
     , renderWalletStatus state
     , renderWalletInfo state

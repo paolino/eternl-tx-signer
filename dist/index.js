@@ -2982,9 +2982,9 @@
   function addEventListener(type) {
     return function(listener) {
       return function(useCapture) {
-        return function(target6) {
+        return function(target7) {
           return function() {
-            return target6.addEventListener(type, listener, useCapture);
+            return target7.addEventListener(type, listener, useCapture);
           };
         };
       };
@@ -2993,9 +2993,9 @@
   function removeEventListener(type) {
     return function(listener) {
       return function(useCapture) {
-        return function(target6) {
+        return function(target7) {
           return function() {
-            return target6.removeEventListener(type, listener, useCapture);
+            return target7.removeEventListener(type, listener, useCapture);
           };
         };
       };
@@ -5944,6 +5944,7 @@
   var div2 = /* @__PURE__ */ element2("div");
   var div_ = /* @__PURE__ */ div2([]);
   var button = /* @__PURE__ */ element2("button");
+  var a = /* @__PURE__ */ element2("a");
 
   // output/Control.Monad.Except/index.js
   var unwrap2 = /* @__PURE__ */ unwrap();
@@ -6037,10 +6038,12 @@
   var prop22 = /* @__PURE__ */ prop2(isPropString);
   var readOnly3 = /* @__PURE__ */ prop1("readOnly");
   var src9 = /* @__PURE__ */ prop22("src");
+  var target6 = /* @__PURE__ */ prop22("target");
   var value12 = function(dictIsProp) {
     return prop2(dictIsProp)("value");
   };
   var placeholder3 = /* @__PURE__ */ prop22("placeholder");
+  var href4 = /* @__PURE__ */ prop22("href");
   var disabled10 = /* @__PURE__ */ prop1("disabled");
   var class_ = /* @__PURE__ */ (function() {
     var $36 = prop22("className");
@@ -7140,7 +7143,7 @@
           return "Connected";
         }
         ;
-        throw new Error("Failed pattern match at Main (line 169, column 15 - line 171, column 39): " + [state3.connectedName.constructor.name]);
+        throw new Error("Failed pattern match at Main (line 176, column 15 - line 178, column 39): " + [state3.connectedName.constructor.name]);
       })())]);
     }
     ;
@@ -7152,7 +7155,7 @@
       return div2([class_("wallet-status")])([span3([class_("dot")])([]), text5("No CIP-30 wallets detected...")]);
     }
     ;
-    throw new Error("Failed pattern match at Main (line 155, column 1 - line 156, column 52): " + [state3.constructor.name]);
+    throw new Error("Failed pattern match at Main (line 162, column 1 - line 163, column 52): " + [state3.constructor.name]);
   };
   var renderSubmitCard = function(state3) {
     var canSubmit = isJust(state3.walletApi) && length3(trim(state3.submitCbor)) > 0;
@@ -7167,7 +7170,7 @@
         return div2([class_("status show success")])([text5("Tx hash: " + state3.submitResult.value0)]);
       }
       ;
-      throw new Error("Failed pattern match at Main (line 565, column 7 - line 574, column 46): " + [state3.submitResult.constructor.name]);
+      throw new Error("Failed pattern match at Main (line 572, column 7 - line 581, column 46): " + [state3.submitResult.constructor.name]);
     })()]);
   };
   var renderSignDataResult = function(state3) {
@@ -7187,7 +7190,7 @@
       })()])]);
     }
     ;
-    throw new Error("Failed pattern match at Main (line 496, column 3 - line 540, column 10): " + [state3.signDataResult.constructor.name]);
+    throw new Error("Failed pattern match at Main (line 503, column 3 - line 547, column 10): " + [state3.signDataResult.constructor.name]);
   };
   var renderSignDataCard = function(state3) {
     var canSignData = isJust(state3.walletApi) && (length3(trim(state3.signDataAddr)) > 0 && length3(trim(state3.signDataPayload)) > 0);
@@ -7212,7 +7215,7 @@
       })()])]);
     }
     ;
-    throw new Error("Failed pattern match at Main (line 405, column 22 - line 447, column 8): " + [state3.witness.constructor.name]);
+    throw new Error("Failed pattern match at Main (line 412, column 22 - line 454, column 8): " + [state3.witness.constructor.name]);
   };
   var renderCard = function(state3) {
     var canSign = isJust(state3.walletApi) && length3(trim(state3.txCbor)) > 0;
@@ -7257,7 +7260,7 @@
       return "error";
     }
     ;
-    throw new Error("Failed pattern match at Main (line 582, column 13 - line 585, column 19): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Main (line 589, column 13 - line 592, column 19): " + [v.constructor.name]);
   };
   var renderStatus = function(state3) {
     if (state3.status instanceof Nothing) {
@@ -7268,7 +7271,7 @@
       return div2([class_("status show " + kindClass(state3.status.value0.kind))])([text5(state3.status.value0.text)]);
     }
     ;
-    throw new Error("Failed pattern match at Main (line 387, column 22 - line 401, column 27): " + [state3.status.constructor.name]);
+    throw new Error("Failed pattern match at Main (line 394, column 22 - line 408, column 27): " + [state3.status.constructor.name]);
   };
   var initialState = function(v) {
     return {
@@ -7326,10 +7329,10 @@
       })])([label_([text5("Wallet Information")]), span3([class_("toggle-arrow" + arrowClass)])([text5(arrowChar)])]), div2([class_("collapsible" + bodyClass)])([div2([class_("info-grid")])([infoRow("Network")(networkName(state3.walletInfo.value0.networkId)), infoRow("Balance (CBOR)")(state3.walletInfo.value0.balance), infoRow("UTXOs")(show2(state3.walletInfo.value0.utxoCount)), infoRow("Change Address")(state3.walletInfo.value0.changeAddress), infoRow("Used Addresses")(show2(length(state3.walletInfo.value0.usedAddresses))), infoRow("Unused Addresses")(show2(length(state3.walletInfo.value0.unusedAddresses))), infoRow("Reward Addresses")(show2(length(state3.walletInfo.value0.rewardAddresses)))]), renderAddressList("Used Addresses")(state3.walletInfo.value0.usedAddresses), renderAddressList("Unused Addresses")(state3.walletInfo.value0.unusedAddresses), renderAddressList("Reward Addresses")(state3.walletInfo.value0.rewardAddresses)])])]);
     }
     ;
-    throw new Error("Failed pattern match at Main (line 222, column 26 - line 305, column 8): " + [state3.walletInfo.constructor.name]);
+    throw new Error("Failed pattern match at Main (line 229, column 26 - line 312, column 8): " + [state3.walletInfo.constructor.name]);
   };
   var render = function(state3) {
-    return div2([class_("container")])([h1_([text5("CIP-30")]), p([class_("subtitle")])([text5("Cardano dApp-Wallet Web Bridge")]), renderWalletStatus(state3), renderWalletInfo(state3), renderCard(state3), renderStatus(state3), renderResult(state3), renderSignDataCard(state3), renderSignDataResult(state3), renderSubmitCard(state3)]);
+    return div2([class_("container")])([h1_([text5("CIP-30")]), p([class_("subtitle")])([text5("Cardano dApp-Wallet Web Bridge "), a([href4("https://github.com/paolino/eternl-tx-signer"), target6("_blank"), class_("gh-link")])([text5("GitHub")])]), renderWalletStatus(state3), renderWalletInfo(state3), renderCard(state3), renderStatus(state3), renderResult(state3), renderSignDataCard(state3), renderSignDataResult(state3), renderSubmitCard(state3)]);
   };
   var findName = function(key) {
     return function(wallets) {
@@ -7400,7 +7403,7 @@
           });
         }
         ;
-        throw new Error("Failed pattern match at Main (line 820, column 3 - line 832, column 8): " + [result.constructor.name]);
+        throw new Error("Failed pattern match at Main (line 827, column 3 - line 839, column 8): " + [result.constructor.name]);
       });
     };
   };
@@ -7497,7 +7500,7 @@
               });
             }
             ;
-            throw new Error("Failed pattern match at Main (line 615, column 5 - line 637, column 10): " + [result.constructor.name]);
+            throw new Error("Failed pattern match at Main (line 622, column 5 - line 644, column 10): " + [result.constructor.name]);
           });
         });
       }
@@ -7579,12 +7582,12 @@
                   });
                 }
                 ;
-                throw new Error("Failed pattern match at Main (line 658, column 11 - line 673, column 16): " + [result.constructor.name]);
+                throw new Error("Failed pattern match at Main (line 665, column 11 - line 680, column 16): " + [result.constructor.name]);
               });
             }));
           }
           ;
-          throw new Error("Failed pattern match at Main (line 643, column 5 - line 673, column 16): " + [st.walletApi.constructor.name]);
+          throw new Error("Failed pattern match at Main (line 650, column 5 - line 680, column 16): " + [st.walletApi.constructor.name]);
         });
       }
       ;
@@ -7626,7 +7629,7 @@
             });
           }
           ;
-          throw new Error("Failed pattern match at Main (line 677, column 5 - line 683, column 41): " + [st.witness.constructor.name]);
+          throw new Error("Failed pattern match at Main (line 684, column 5 - line 690, column 41): " + [st.witness.constructor.name]);
         });
       }
       ;
@@ -7723,12 +7726,12 @@
                   });
                 }
                 ;
-                throw new Error("Failed pattern match at Main (line 715, column 13 - line 730, column 18): " + [result.constructor.name]);
+                throw new Error("Failed pattern match at Main (line 722, column 13 - line 737, column 18): " + [result.constructor.name]);
               });
             }));
           }
           ;
-          throw new Error("Failed pattern match at Main (line 693, column 5 - line 730, column 18): " + [st.walletApi.constructor.name]);
+          throw new Error("Failed pattern match at Main (line 700, column 5 - line 737, column 18): " + [st.walletApi.constructor.name]);
         });
       }
       ;
@@ -7770,7 +7773,7 @@
             });
           }
           ;
-          throw new Error("Failed pattern match at Main (line 734, column 5 - line 742, column 39): " + [st.signDataResult.constructor.name]);
+          throw new Error("Failed pattern match at Main (line 741, column 5 - line 749, column 39): " + [st.signDataResult.constructor.name]);
         });
       }
       ;
@@ -7851,12 +7854,12 @@
                   });
                 }
                 ;
-                throw new Error("Failed pattern match at Main (line 764, column 11 - line 780, column 16): " + [result.constructor.name]);
+                throw new Error("Failed pattern match at Main (line 771, column 11 - line 787, column 16): " + [result.constructor.name]);
               });
             }));
           }
           ;
-          throw new Error("Failed pattern match at Main (line 749, column 5 - line 780, column 16): " + [st.walletApi.constructor.name]);
+          throw new Error("Failed pattern match at Main (line 756, column 5 - line 787, column 16): " + [st.walletApi.constructor.name]);
         });
       }
       ;
@@ -7875,7 +7878,7 @@
         });
       }
       ;
-      throw new Error("Failed pattern match at Main (line 592, column 16 - line 787, column 10): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Main (line 599, column 16 - line 794, column 10): " + [v.constructor.name]);
     };
   };
   var component = /* @__PURE__ */ (function() {
