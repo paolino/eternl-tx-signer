@@ -1,8 +1,9 @@
--- | FFI for CIP-30 wallet interaction via Eternl.
+-- | FFI for CIP-30 wallet interaction.
 module FFI.Wallet
   ( WalletApi
-  , detectEternl
-  , enableWallet
+  , WalletEntry
+  , detectWallets
+  , enableWalletByKey
   , signTx
   , getNetworkId
   , getBalance
@@ -25,11 +26,20 @@ import Effect.Exception (Error)
 -- | Opaque handle to the CIP-30 wallet API.
 foreign import data WalletApi :: Type
 
--- | Check whether the Eternl extension is available.
-foreign import detectEternl :: Effect Boolean
+-- | A detected CIP-30 wallet entry.
+type WalletEntry =
+  { key :: String
+  , name :: String
+  , icon :: String
+  }
 
-foreign import enableWalletImpl
-  :: (Error -> Effect Unit)
+-- | Detect all available CIP-30 wallets.
+foreign import detectWallets
+  :: Effect (Array WalletEntry)
+
+foreign import enableWalletByKeyImpl
+  :: String
+  -> (Error -> Effect Unit)
   -> (WalletApi -> Effect Unit)
   -> Effect Unit
 
@@ -97,10 +107,11 @@ foreign import submitTxImpl
   -> (String -> Effect Unit)
   -> Effect Unit
 
--- | Enable the Eternl wallet and obtain an API handle.
-enableWallet :: Aff WalletApi
-enableWallet = makeAff \cb -> do
-  enableWalletImpl
+-- | Enable a wallet by its key and obtain an API
+-- | handle.
+enableWalletByKey :: String -> Aff WalletApi
+enableWalletByKey key = makeAff \cb -> do
+  enableWalletByKeyImpl key
     (\err -> cb (Left err))
     (\api -> cb (Right api))
   pure mempty
@@ -171,7 +182,8 @@ getRewardAddresses api = makeAff \cb -> do
 
 -- | Sign arbitrary data (CIP-8). Returns JSON string
 -- | of the DataSignature {signature, key}.
-signData :: WalletApi -> String -> String -> Aff String
+signData
+  :: WalletApi -> String -> String -> Aff String
 signData api addr payload = makeAff \cb -> do
   signDataImpl api addr payload
     (\err -> cb (Left err))

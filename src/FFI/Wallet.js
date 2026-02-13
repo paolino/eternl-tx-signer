@@ -1,8 +1,19 @@
-export const detectEternl = () =>
-  !!(window.cardano && window.cardano.eternl);
+export const detectWallets = () => {
+  if (!window.cardano) return [];
+  const wallets = [];
+  for (const key of Object.keys(window.cardano)) {
+    const w = window.cardano[key];
+    if (w && typeof w === 'object' && typeof w.enable === 'function' && typeof w.name === 'string') {
+      wallets.push({ key, name: w.name, icon: w.icon || "" });
+    }
+  }
+  return wallets;
+};
 
-export const enableWalletImpl = (onError) => (onSuccess) => () => {
-  window.cardano.eternl.enable()
+export const enableWalletByKeyImpl = (key) => (onError) => (onSuccess) => () => {
+  const w = window.cardano[key];
+  if (!w) { onError(new Error("Wallet not found: " + key))(); return; }
+  w.enable()
     .then((api) => onSuccess(api)())
     .catch((err) => onError(new Error(String(err)))());
 };
