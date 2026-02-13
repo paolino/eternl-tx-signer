@@ -2,7 +2,7 @@
 
 Cardano dApp-Wallet Web Bridge — a minimal web tool for interacting with any CIP-30 compatible wallet.
 
-**[Live demo](https://paolino.github.io/eternl-tx-signer/)**
+**[Live demo](https://paolino.github.io/cip-30/)**
 
 ## Features
 
@@ -33,4 +33,4 @@ just ci       # lint + build + bundle
 ## Links
 
 - [CIP-30 specification](https://cips.cardano.org/cip/CIP-30)
-- [Repository](https://github.com/paolino/eternl-tx-signer)
+- [Repository](https://github.com/paolino/cip-30)

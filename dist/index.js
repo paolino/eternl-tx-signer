@@ -7332,7 +7332,7 @@
     throw new Error("Failed pattern match at Main (line 229, column 26 - line 312, column 8): " + [state3.walletInfo.constructor.name]);
   };
   var render = function(state3) {
-    return div2([class_("container")])([h1_([text5("CIP-30")]), p([class_("subtitle")])([text5("Cardano dApp-Wallet Web Bridge "), a([href4("https://github.com/paolino/eternl-tx-signer"), target6("_blank"), class_("gh-link")])([text5("GitHub")])]), renderWalletStatus(state3), renderWalletInfo(state3), renderCard(state3), renderStatus(state3), renderResult(state3), renderSignDataCard(state3), renderSignDataResult(state3), renderSubmitCard(state3)]);
+    return div2([class_("container")])([h1_([text5("CIP-30")]), p([class_("subtitle")])([text5("Cardano dApp-Wallet Web Bridge "), a([href4("https://github.com/paolino/cip-30"), target6("_blank"), class_("gh-link")])([text5("GitHub")])]), renderWalletStatus(state3), renderWalletInfo(state3), renderCard(state3), renderStatus(state3), renderResult(state3), renderSignDataCard(state3), renderSignDataResult(state3), renderSubmitCard(state3)]);
   };
   var findName = function(key) {
     return function(wallets) {
