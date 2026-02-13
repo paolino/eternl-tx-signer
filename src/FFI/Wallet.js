@@ -54,3 +54,15 @@ export const getRewardAddressesImpl = (api) => (onError) => (onSuccess) => () =>
     .then((addrs) => onSuccess(addrs || [])())
     .catch((err) => onError(new Error(String(err)))());
 };
+
+export const signDataImpl = (api) => (addr) => (payload) => (onError) => (onSuccess) => () => {
+  api.signData(addr, payload)
+    .then((sig) => onSuccess(JSON.stringify(sig))())
+    .catch((err) => onError(new Error(String(err)))());
+};
+
+export const submitTxImpl = (api) => (cborHex) => (onError) => (onSuccess) => () => {
+  api.submitTx(cborHex)
+    .then((hash) => onSuccess(hash)())
+    .catch((err) => onError(new Error(String(err)))());
+};

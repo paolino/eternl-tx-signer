@@ -27,7 +27,9 @@ import FFI.Wallet
   , getUnusedAddresses
   , getUsedAddresses
   , getUtxos
+  , signData
   , signTx
+  , submitTx
   )
 import Halogen as H
 import Halogen.Aff as HA
@@ -70,6 +72,13 @@ type State =
   , status :: Maybe StatusMsg
   , witness :: Maybe String
   , copyHint :: Boolean
+  , signDataAddr :: String
+  , signDataPayload :: String
+  , signDataResult :: Maybe String
+  , copySignDataHint :: Boolean
+  , submitCbor :: String
+  , submitResult :: Maybe String
+  , walletInfoOpen :: Boolean
   }
 
 initialState :: forall i. i -> State
@@ -81,6 +90,13 @@ initialState _ =
   , status: Nothing
   , witness: Nothing
   , copyHint: false
+  , signDataAddr: ""
+  , signDataPayload: ""
+  , signDataResult: Nothing
+  , copySignDataHint: false
+  , submitCbor: ""
+  , submitResult: Nothing
+  , walletInfoOpen: false
   }
 
 -- | Component actions.
@@ -91,6 +107,13 @@ data Action
   | SetTxCbor String
   | SignTx
   | CopyWitness
+  | SetSignDataAddr String
+  | SetSignDataPayload String
+  | DoSignData
+  | CopySignData
+  | SetSubmitCbor String
+  | DoSubmitTx
+  | ToggleWalletInfo
 
 component :: forall q i o. H.Component q i o Aff
 component =
@@ -121,6 +144,9 @@ render state =
     , renderCard state
     , renderStatus state
     , renderResult state
+    , renderSignDataCard state
+    , renderSignDataResult state
+    , renderSubmitCard state
     ]
 
 renderWalletStatus
@@ -168,47 +194,85 @@ renderWalletInfo state = case state.walletInfo of
       ]
       [ HH.div
           [ HP.class_ (HH.ClassName "card") ]
-          [ HH.label_
-              [ HH.text "Wallet Information" ]
+          [ HH.div
+              [ HP.class_
+                  (HH.ClassName "section-toggle")
+              , HE.onClick \_ -> ToggleWalletInfo
+              ]
+              [ HH.label_
+                  [ HH.text
+                      "Wallet Information"
+                  ]
+              , HH.span
+                  [ HP.class_
+                      ( HH.ClassName
+                          ( "toggle-arrow"
+                              <> arrowClass
+                          )
+                      )
+                  ]
+                  [ HH.text arrowChar ]
+              ]
           , HH.div
               [ HP.class_
-                  (HH.ClassName "info-grid")
-              ]
-              [ infoRow "Network"
-                  (networkName info.networkId)
-              , infoRow "Balance (CBOR)"
-                  info.balance
-              , infoRow "UTXOs"
-                  (show info.utxoCount)
-              , infoRow "Change Address"
-                  info.changeAddress
-              , infoRow "Used Addresses"
-                  ( show
-                      ( Array.length
-                          info.usedAddresses
-                      )
-                  )
-              , infoRow "Unused Addresses"
-                  ( show
-                      ( Array.length
-                          info.unusedAddresses
-                      )
-                  )
-              , infoRow "Reward Addresses"
-                  ( show
-                      ( Array.length
-                          info.rewardAddresses
+                  ( HH.ClassName
+                      ( "collapsible"
+                          <> bodyClass
                       )
                   )
               ]
-          , renderAddressList "Used Addresses"
-              info.usedAddresses
-          , renderAddressList "Unused Addresses"
-              info.unusedAddresses
-          , renderAddressList "Reward Addresses"
-              info.rewardAddresses
+              [ HH.div
+                  [ HP.class_
+                      (HH.ClassName "info-grid")
+                  ]
+                  [ infoRow "Network"
+                      ( networkName
+                          info.networkId
+                      )
+                  , infoRow "Balance (CBOR)"
+                      info.balance
+                  , infoRow "UTXOs"
+                      (show info.utxoCount)
+                  , infoRow "Change Address"
+                      info.changeAddress
+                  , infoRow "Used Addresses"
+                      ( show
+                          ( Array.length
+                              info.usedAddresses
+                          )
+                      )
+                  , infoRow "Unused Addresses"
+                      ( show
+                          ( Array.length
+                              info.unusedAddresses
+                          )
+                      )
+                  , infoRow "Reward Addresses"
+                      ( show
+                          ( Array.length
+                              info.rewardAddresses
+                          )
+                      )
+                  ]
+              , renderAddressList
+                  "Used Addresses"
+                  info.usedAddresses
+              , renderAddressList
+                  "Unused Addresses"
+                  info.unusedAddresses
+              , renderAddressList
+                  "Reward Addresses"
+                  info.rewardAddresses
+              ]
           ]
       ]
+  where
+  arrowClass =
+    if state.walletInfoOpen then " open" else ""
+  bodyClass =
+    if state.walletInfoOpen then " open" else ""
+  arrowChar =
+    if state.walletInfoOpen then "v" else ">"
 
 infoRow
   :: forall m a. String -> String -> HH.HTML m a
@@ -345,6 +409,138 @@ renderResult state = case state.witness of
           ]
       ]
 
+renderSignDataCard
+  :: forall m. State -> H.ComponentHTML Action () m
+renderSignDataCard state =
+  HH.div
+    [ HP.class_ (HH.ClassName "card") ]
+    [ HH.label_ [ HH.text "Sign Data (CIP-8)" ]
+    , HH.label_
+        [ HH.text "Address (hex)" ]
+    , HH.textarea
+        [ HP.placeholder
+            "Address hex for signing..."
+        , HP.value state.signDataAddr
+        , HE.onValueInput SetSignDataAddr
+        , HP.class_
+            (HH.ClassName "textarea-small")
+        ]
+    , HH.label_
+        [ HH.text "Payload (hex)" ]
+    , HH.textarea
+        [ HP.placeholder
+            "Hex-encoded payload to sign..."
+        , HP.value state.signDataPayload
+        , HE.onValueInput SetSignDataPayload
+        , HP.class_
+            (HH.ClassName "textarea-small")
+        ]
+    , HH.div
+        [ HP.class_ (HH.ClassName "actions") ]
+        [ HH.button
+            [ HP.class_
+                (HH.ClassName "btn-primary")
+            , HP.disabled (not canSignData)
+            , HE.onClick \_ -> DoSignData
+            ]
+            [ HH.text "Sign Data" ]
+        ]
+    ]
+  where
+  canSignData =
+    isJust state.walletApi
+      && length (trim state.signDataAddr) > 0
+      && length (trim state.signDataPayload)
+      > 0
+
+renderSignDataResult
+  :: forall m. State -> H.ComponentHTML Action () m
+renderSignDataResult state =
+  case state.signDataResult of
+    Nothing ->
+      HH.div
+        [ HP.class_
+            (HH.ClassName "result-area")
+        ]
+        []
+    Just sig ->
+      HH.div
+        [ HP.class_
+            (HH.ClassName "result-area show")
+        ]
+        [ HH.div
+            [ HP.class_ (HH.ClassName "card") ]
+            [ HH.label_
+                [ HH.text "Data Signature" ]
+            , HH.textarea
+                [ HP.value sig
+                , HP.readOnly true
+                ]
+            , HH.div
+                [ HP.class_
+                    (HH.ClassName "actions")
+                ]
+                [ HH.button
+                    [ HP.class_
+                        ( HH.ClassName
+                            "btn-secondary"
+                        )
+                    , HE.onClick \_ -> CopySignData
+                    ]
+                    [ HH.text
+                        "Copy to Clipboard"
+                    ]
+                ]
+            , if state.copySignDataHint then
+                HH.div
+                  [ HP.class_
+                      (HH.ClassName "copy-hint")
+                  ]
+                  [ HH.text "Copied!" ]
+              else
+                HH.text ""
+            ]
+        ]
+
+renderSubmitCard
+  :: forall m. State -> H.ComponentHTML Action () m
+renderSubmitCard state =
+  HH.div
+    [ HP.class_ (HH.ClassName "card") ]
+    [ HH.label_
+        [ HH.text "Submit Transaction" ]
+    , HH.textarea
+        [ HP.placeholder
+            "Paste fully-signed transaction CBOR hex..."
+        , HP.value state.submitCbor
+        , HE.onValueInput SetSubmitCbor
+        ]
+    , HH.div
+        [ HP.class_ (HH.ClassName "actions") ]
+        [ HH.button
+            [ HP.class_
+                (HH.ClassName "btn-primary")
+            , HP.disabled (not canSubmit)
+            , HE.onClick \_ -> DoSubmitTx
+            ]
+            [ HH.text "Submit Transaction" ]
+        ]
+    , case state.submitResult of
+        Nothing -> HH.text ""
+        Just hash ->
+          HH.div
+            [ HP.class_
+                ( HH.ClassName
+                    "status show success"
+                )
+            ]
+            [ HH.text ("Tx hash: " <> hash) ]
+    ]
+  where
+  canSubmit =
+    isJust state.walletApi
+      && length (trim state.submitCbor) > 0
+
 kindClass :: StatusKind -> String
 kindClass = case _ of
   Info -> "info"
@@ -439,6 +635,110 @@ handleAction = case _ of
         H.modify_ _ { copyHint = true }
         H.liftAff $ delay (Milliseconds 2000.0)
         H.modify_ _ { copyHint = false }
+
+  SetSignDataAddr s ->
+    H.modify_ _ { signDataAddr = s }
+
+  SetSignDataPayload s ->
+    H.modify_ _ { signDataPayload = s }
+
+  DoSignData -> do
+    st <- H.get
+    case st.walletApi of
+      Nothing -> pure unit
+      Just api -> do
+        let
+          addr = trim st.signDataAddr
+          payload = trim st.signDataPayload
+        when
+          ( length addr > 0
+              && length payload > 0
+          )
+          do
+            H.modify_ _
+              { status = Just
+                  { kind: Info
+                  , text: "Signing data..."
+                  }
+              , signDataResult = Nothing
+              }
+            result <-
+              H.liftAff
+                $ attempt
+                    (signData api addr payload)
+            case result of
+              Right sig -> H.modify_ _
+                { signDataResult = Just sig
+                , status = Just
+                    { kind: Success
+                    , text: "Data signed"
+                    }
+                }
+              Left err -> H.modify_ _
+                { status = Just
+                    { kind: Error
+                    , text:
+                        "Sign data failed: "
+                          <> show err
+                    }
+                }
+
+  CopySignData -> do
+    st <- H.get
+    case st.signDataResult of
+      Nothing -> pure unit
+      Just sig -> do
+        liftEffect $ copyToClipboard sig
+        H.modify_ _
+          { copySignDataHint = true }
+        H.liftAff $ delay (Milliseconds 2000.0)
+        H.modify_ _
+          { copySignDataHint = false }
+
+  SetSubmitCbor s ->
+    H.modify_ _ { submitCbor = s }
+
+  DoSubmitTx -> do
+    st <- H.get
+    case st.walletApi of
+      Nothing -> pure unit
+      Just api -> do
+        let cbor = trim st.submitCbor
+        when (length cbor > 0) do
+          H.modify_ _
+            { status = Just
+                { kind: Info
+                , text: "Submitting..."
+                }
+            , submitResult = Nothing
+            }
+          result <-
+            H.liftAff
+              $ attempt (submitTx api cbor)
+          case result of
+            Right hash -> H.modify_ _
+              { submitResult = Just hash
+              , status = Just
+                  { kind: Success
+                  , text:
+                      "Transaction submitted"
+                  }
+              }
+            Left err -> H.modify_ _
+              { status = Just
+                  { kind: Error
+                  , text:
+                      "Submit failed: "
+                        <> show err
+                  }
+              }
+
+  ToggleWalletInfo ->
+    H.modify_ \s ->
+      s
+        { walletInfoOpen =
+            not s.walletInfoOpen
+        }
 
 -- | Fetch all wallet info after connecting.
 fetchWalletInfo
