@@ -2,9 +2,9 @@ module Main where
 
 import Prelude
 
-import Data.Array (length) as Array
+import Data.Array (filter, head, length, null) as Array
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), isJust, isNothing)
+import Data.Maybe (Maybe(..), isJust, fromMaybe)
 import Data.String (trim, length)
 import Effect (Effect)
 import Effect.Aff
@@ -18,8 +18,9 @@ import Effect.Class (liftEffect)
 import FFI.Clipboard (copyToClipboard)
 import FFI.Wallet
   ( WalletApi
-  , detectEternl
-  , enableWallet
+  , WalletEntry
+  , detectWallets
+  , enableWalletByKey
   , getBalance
   , getChangeAddress
   , getNetworkId
@@ -65,9 +66,11 @@ type WalletInfo =
 
 -- | Component state.
 type State =
-  { walletDetected :: Boolean
+  { availableWallets :: Array WalletEntry
+  , connectedName :: Maybe String
   , walletApi :: Maybe WalletApi
   , walletInfo :: Maybe WalletInfo
+  , walletInfoOpen :: Boolean
   , txCbor :: String
   , status :: Maybe StatusMsg
   , witness :: Maybe String
@@ -78,14 +81,15 @@ type State =
   , copySignDataHint :: Boolean
   , submitCbor :: String
   , submitResult :: Maybe String
-  , walletInfoOpen :: Boolean
   }
 
 initialState :: forall i. i -> State
 initialState _ =
-  { walletDetected: false
+  { availableWallets: []
+  , connectedName: Nothing
   , walletApi: Nothing
   , walletInfo: Nothing
+  , walletInfoOpen: false
   , txCbor: ""
   , status: Nothing
   , witness: Nothing
@@ -96,14 +100,13 @@ initialState _ =
   , copySignDataHint: false
   , submitCbor: ""
   , submitResult: Nothing
-  , walletInfoOpen: false
   }
 
 -- | Component actions.
 data Action
   = Initialize
-  | PollWallet Int
-  | ConnectWallet
+  | PollWallets Int
+  | ConnectWallet String
   | SetTxCbor String
   | SignTx
   | CopyWitness
@@ -133,11 +136,11 @@ render
 render state =
   HH.div
     [ HP.class_ (HH.ClassName "container") ]
-    [ HH.h1_ [ HH.text "Cardano Tx Signer" ]
+    [ HH.h1_ [ HH.text "CIP-30" ]
     , HH.p
         [ HP.class_ (HH.ClassName "subtitle") ]
         [ HH.text
-            "Sign transactions with Eternl via CIP-30"
+            "Cardano dApp-Wallet Web Bridge"
         ]
     , renderWalletStatus state
     , renderWalletInfo state
@@ -151,34 +154,68 @@ render state =
 
 renderWalletStatus
   :: forall m. State -> H.ComponentHTML Action () m
-renderWalletStatus state =
-  HH.div
-    [ HP.class_ (HH.ClassName "wallet-status") ]
-    [ HH.span
-        [ HP.class_ (HH.ClassName dotClass) ]
-        []
-    , HH.text statusText
-    , if needsConnect then
-        HH.button
-          [ HP.class_
-              (HH.ClassName "btn-secondary")
-          , HE.onClick \_ -> ConnectWallet
+renderWalletStatus state
+  | isJust state.walletApi =
+      HH.div
+        [ HP.class_
+            (HH.ClassName "wallet-status")
+        ]
+        [ HH.span
+            [ HP.class_
+                (HH.ClassName "dot connected")
+            ]
+            []
+        , HH.text
+            ( case state.connectedName of
+                Just n -> n <> " connected"
+                Nothing -> "Connected"
+            )
+        ]
+  | not (Array.null state.availableWallets) =
+      HH.div
+        [ HP.class_
+            (HH.ClassName "wallet-picker")
+        ]
+        [ HH.label_
+            [ HH.text "Select wallet" ]
+        , HH.div
+            [ HP.class_
+                (HH.ClassName "wallet-list")
+            ]
+            ( map renderWalletBtn
+                state.availableWallets
+            )
+        ]
+  | otherwise =
+      HH.div
+        [ HP.class_
+            (HH.ClassName "wallet-status")
+        ]
+        [ HH.span
+            [ HP.class_ (HH.ClassName "dot") ]
+            []
+        , HH.text
+            "No CIP-30 wallets detected..."
+        ]
+
+renderWalletBtn
+  :: forall m. WalletEntry -> H.ComponentHTML Action () m
+renderWalletBtn w =
+  HH.button
+    [ HP.class_
+        (HH.ClassName "wallet-btn")
+    , HE.onClick \_ -> ConnectWallet w.key
+    ]
+    [ if length w.icon > 0 then
+        HH.img
+          [ HP.src w.icon
+          , HP.class_
+              (HH.ClassName "wallet-icon")
           ]
-          [ HH.text "Connect" ]
       else
         HH.text ""
+    , HH.text w.name
     ]
-  where
-  connected = isJust state.walletApi
-  dotClass =
-    if connected then "dot connected" else "dot"
-  statusText
-    | connected = "Eternl connected"
-    | state.walletDetected = "Eternl detected"
-    | otherwise = "Waiting for Eternl..."
-  needsConnect =
-    state.walletDetected
-      && isNothing state.walletApi
 
 renderWalletInfo
   :: forall m. State -> H.ComponentHTML Action () m
@@ -553,28 +590,37 @@ handleAction
   => Action
   -> H.HalogenM State Action () o m Unit
 handleAction = case _ of
-  Initialize -> handleAction (PollWallet 20)
+  Initialize ->
+    handleAction (PollWallets 20)
 
-  PollWallet n -> do
-    found <- liftEffect detectEternl
-    if found then
-      H.modify_ _ { walletDetected = true }
+  PollWallets n -> do
+    wallets <- liftEffect detectWallets
+    if not (Array.null wallets) then
+      H.modify_ _
+        { availableWallets = wallets }
     else when (n > 0) do
       H.liftAff $ delay (Milliseconds 500.0)
-      handleAction (PollWallet (n - 1))
+      handleAction (PollWallets (n - 1))
 
-  ConnectWallet -> do
+  ConnectWallet key -> do
     H.modify_ _
       { status = Just
           { kind: Info
           , text: "Connecting..."
           }
       }
-    result <- H.liftAff $ attempt enableWallet
+    result <-
+      H.liftAff
+        $ attempt (enableWalletByKey key)
     case result of
       Right api -> do
+        st <- H.get
+        let
+          name = findName key
+            st.availableWallets
         H.modify_ _
           { walletApi = Just api
+          , connectedName = Just name
           , status = Just
               { kind: Info
               , text: "Loading wallet info..."
@@ -740,6 +786,13 @@ handleAction = case _ of
             not s.walletInfoOpen
         }
 
+findName :: String -> Array WalletEntry -> String
+findName key wallets =
+  fromMaybe key
+    $ map _.name
+    $ Array.head
+    $ Array.filter (\w -> w.key == key) wallets
+
 -- | Fetch all wallet info after connecting.
 fetchWalletInfo
   :: forall o m
@@ -767,10 +820,7 @@ fetchWalletInfo api = do
   case result of
     Right info -> H.modify_ _
       { walletInfo = Just info
-      , status = Just
-          { kind: Success
-          , text: "Wallet connected"
-          }
+      , status = Nothing
       }
     Left err -> H.modify_ _
       { status = Just
