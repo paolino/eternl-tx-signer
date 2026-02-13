@@ -2,15 +2,33 @@ module Main where
 
 import Prelude
 
+import Data.Array (length) as Array
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..), isJust, isNothing)
 import Data.String (trim, length)
 import Effect (Effect)
-import Effect.Aff (Aff, Milliseconds(..), attempt, delay)
+import Effect.Aff
+  ( Aff
+  , Milliseconds(..)
+  , attempt
+  , delay
+  )
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class (liftEffect)
 import FFI.Clipboard (copyToClipboard)
-import FFI.Wallet (WalletApi, detectEternl, enableWallet, signTx)
+import FFI.Wallet
+  ( WalletApi
+  , detectEternl
+  , enableWallet
+  , getBalance
+  , getChangeAddress
+  , getNetworkId
+  , getRewardAddresses
+  , getUnusedAddresses
+  , getUsedAddresses
+  , getUtxos
+  , signTx
+  )
 import Halogen as H
 import Halogen.Aff as HA
 import Halogen.HTML as HH
@@ -32,10 +50,22 @@ type StatusMsg =
   , text :: String
   }
 
+-- | Wallet information retrieved after connecting.
+type WalletInfo =
+  { networkId :: Int
+  , balance :: String
+  , utxoCount :: Int
+  , usedAddresses :: Array String
+  , unusedAddresses :: Array String
+  , changeAddress :: String
+  , rewardAddresses :: Array String
+  }
+
 -- | Component state.
 type State =
   { walletDetected :: Boolean
   , walletApi :: Maybe WalletApi
+  , walletInfo :: Maybe WalletInfo
   , txCbor :: String
   , status :: Maybe StatusMsg
   , witness :: Maybe String
@@ -46,6 +76,7 @@ initialState :: forall i. i -> State
 initialState _ =
   { walletDetected: false
   , walletApi: Nothing
+  , walletInfo: Nothing
   , txCbor: ""
   , status: Nothing
   , witness: Nothing
@@ -74,7 +105,8 @@ component =
             }
     }
 
-render :: forall m. State -> H.ComponentHTML Action () m
+render
+  :: forall m. State -> H.ComponentHTML Action () m
 render state =
   HH.div
     [ HP.class_ (HH.ClassName "container") ]
@@ -85,6 +117,7 @@ render state =
             "Sign transactions with Eternl via CIP-30"
         ]
     , renderWalletStatus state
+    , renderWalletInfo state
     , renderCard state
     , renderStatus state
     , renderResult state
@@ -95,11 +128,14 @@ renderWalletStatus
 renderWalletStatus state =
   HH.div
     [ HP.class_ (HH.ClassName "wallet-status") ]
-    [ HH.span [ HP.class_ (HH.ClassName dotClass) ] []
+    [ HH.span
+        [ HP.class_ (HH.ClassName dotClass) ]
+        []
     , HH.text statusText
     , if needsConnect then
         HH.button
-          [ HP.class_ (HH.ClassName "btn-secondary")
+          [ HP.class_
+              (HH.ClassName "btn-secondary")
           , HE.onClick \_ -> ConnectWallet
           ]
           [ HH.text "Connect" ]
@@ -115,23 +151,124 @@ renderWalletStatus state =
     | state.walletDetected = "Eternl detected"
     | otherwise = "Waiting for Eternl..."
   needsConnect =
-    state.walletDetected && isNothing state.walletApi
+    state.walletDetected
+      && isNothing state.walletApi
+
+renderWalletInfo
+  :: forall m. State -> H.ComponentHTML Action () m
+renderWalletInfo state = case state.walletInfo of
+  Nothing ->
+    HH.div
+      [ HP.class_ (HH.ClassName "wallet-info") ]
+      []
+  Just info ->
+    HH.div
+      [ HP.class_
+          (HH.ClassName "wallet-info show")
+      ]
+      [ HH.div
+          [ HP.class_ (HH.ClassName "card") ]
+          [ HH.label_
+              [ HH.text "Wallet Information" ]
+          , HH.div
+              [ HP.class_
+                  (HH.ClassName "info-grid")
+              ]
+              [ infoRow "Network"
+                  (networkName info.networkId)
+              , infoRow "Balance (CBOR)"
+                  info.balance
+              , infoRow "UTXOs"
+                  (show info.utxoCount)
+              , infoRow "Change Address"
+                  info.changeAddress
+              , infoRow "Used Addresses"
+                  ( show
+                      ( Array.length
+                          info.usedAddresses
+                      )
+                  )
+              , infoRow "Unused Addresses"
+                  ( show
+                      ( Array.length
+                          info.unusedAddresses
+                      )
+                  )
+              , infoRow "Reward Addresses"
+                  ( show
+                      ( Array.length
+                          info.rewardAddresses
+                      )
+                  )
+              ]
+          , renderAddressList "Used Addresses"
+              info.usedAddresses
+          , renderAddressList "Unused Addresses"
+              info.unusedAddresses
+          , renderAddressList "Reward Addresses"
+              info.rewardAddresses
+          ]
+      ]
+
+infoRow
+  :: forall m a. String -> String -> HH.HTML m a
+infoRow label value =
+  HH.div
+    [ HP.class_ (HH.ClassName "info-row") ]
+    [ HH.span
+        [ HP.class_ (HH.ClassName "info-label") ]
+        [ HH.text label ]
+    , HH.span
+        [ HP.class_ (HH.ClassName "info-value") ]
+        [ HH.text value ]
+    ]
+
+renderAddressList
+  :: forall m a
+   . String
+  -> Array String
+  -> HH.HTML m a
+renderAddressList label addrs =
+  if Array.length addrs == 0 then HH.text ""
+  else
+    HH.div
+      [ HP.class_
+          (HH.ClassName "address-list")
+      ]
+      [ HH.label_ [ HH.text label ]
+      , HH.div_ (map renderAddr addrs)
+      ]
+  where
+  renderAddr addr =
+    HH.div
+      [ HP.class_
+          (HH.ClassName "address-item")
+      ]
+      [ HH.text addr ]
+
+networkName :: Int -> String
+networkName 0 = "Testnet"
+networkName 1 = "Mainnet"
+networkName n = "Unknown (" <> show n <> ")"
 
 renderCard
   :: forall m. State -> H.ComponentHTML Action () m
 renderCard state =
   HH.div
     [ HP.class_ (HH.ClassName "card") ]
-    [ HH.label_ [ HH.text "Transaction CBOR" ]
+    [ HH.label_
+        [ HH.text "Transaction CBOR" ]
     , HH.textarea
-        [ HP.placeholder "Paste transaction CBOR hex..."
+        [ HP.placeholder
+            "Paste transaction CBOR hex..."
         , HP.value state.txCbor
         , HE.onValueInput SetTxCbor
         ]
     , HH.div
         [ HP.class_ (HH.ClassName "actions") ]
         [ HH.button
-            [ HP.class_ (HH.ClassName "btn-primary")
+            [ HP.class_
+                (HH.ClassName "btn-primary")
             , HP.disabled (not canSign)
             , HE.onClick \_ -> SignTx
             ]
@@ -148,12 +285,16 @@ renderStatus
   :: forall m. State -> H.ComponentHTML Action () m
 renderStatus state = case state.status of
   Nothing ->
-    HH.div [ HP.class_ (HH.ClassName "status") ] []
+    HH.div
+      [ HP.class_ (HH.ClassName "status") ]
+      []
   Just msg ->
     HH.div
       [ HP.class_
           ( HH.ClassName
-              ("status show " <> kindClass msg.kind)
+              ( "status show "
+                  <> kindClass msg.kind
+              )
           )
       ]
       [ HH.text msg.text ]
@@ -163,11 +304,15 @@ renderResult
 renderResult state = case state.witness of
   Nothing ->
     HH.div
-      [ HP.class_ (HH.ClassName "result-area") ]
+      [ HP.class_
+          (HH.ClassName "result-area")
+      ]
       []
   Just wit ->
     HH.div
-      [ HP.class_ (HH.ClassName "result-area show") ]
+      [ HP.class_
+          (HH.ClassName "result-area show")
+      ]
       [ HH.div
           [ HP.class_ (HH.ClassName "card") ]
           [ HH.label_ [ HH.text "Witness" ]
@@ -176,17 +321,23 @@ renderResult state = case state.witness of
               , HP.readOnly true
               ]
           , HH.div
-              [ HP.class_ (HH.ClassName "actions") ]
+              [ HP.class_
+                  (HH.ClassName "actions")
+              ]
               [ HH.button
                   [ HP.class_
-                      (HH.ClassName "btn-secondary")
+                      ( HH.ClassName
+                          "btn-secondary"
+                      )
                   , HE.onClick \_ -> CopyWitness
                   ]
-                  [ HH.text "Copy to Clipboard" ]
+                  [ HH.text "Copy to Clipboard"
+                  ]
               ]
           , if state.copyHint then
               HH.div
-                [ HP.class_ (HH.ClassName "copy-hint")
+                [ HP.class_
+                    (HH.ClassName "copy-hint")
                 ]
                 [ HH.text "Copied!" ]
             else
@@ -219,21 +370,27 @@ handleAction = case _ of
   ConnectWallet -> do
     H.modify_ _
       { status = Just
-          { kind: Info, text: "Connecting..." }
+          { kind: Info
+          , text: "Connecting..."
+          }
       }
     result <- H.liftAff $ attempt enableWallet
     case result of
-      Right api -> H.modify_ _
-        { walletApi = Just api
-        , status = Just
-            { kind: Success
-            , text: "Wallet connected"
-            }
-        }
+      Right api -> do
+        H.modify_ _
+          { walletApi = Just api
+          , status = Just
+              { kind: Info
+              , text: "Loading wallet info..."
+              }
+          }
+        fetchWalletInfo api
       Left err -> H.modify_ _
         { status = Just
             { kind: Error
-            , text: "Connection failed: " <> show err
+            , text:
+                "Connection failed: "
+                  <> show err
             }
         }
 
@@ -254,7 +411,8 @@ handleAction = case _ of
             , witness = Nothing
             }
           result <-
-            H.liftAff $ attempt (signTx api cbor)
+            H.liftAff
+              $ attempt (signTx api cbor)
           case result of
             Right wit -> H.modify_ _
               { witness = Just wit
@@ -267,7 +425,8 @@ handleAction = case _ of
               { status = Just
                   { kind: Error
                   , text:
-                      "Signing failed: " <> show err
+                      "Signing failed: "
+                        <> show err
                   }
               }
 
@@ -280,3 +439,44 @@ handleAction = case _ of
         H.modify_ _ { copyHint = true }
         H.liftAff $ delay (Milliseconds 2000.0)
         H.modify_ _ { copyHint = false }
+
+-- | Fetch all wallet info after connecting.
+fetchWalletInfo
+  :: forall o m
+   . MonadAff m
+  => WalletApi
+  -> H.HalogenM State Action () o m Unit
+fetchWalletInfo api = do
+  result <- H.liftAff $ attempt do
+    nid <- getNetworkId api
+    bal <- getBalance api
+    utxos <- getUtxos api
+    used <- getUsedAddresses api
+    unused <- getUnusedAddresses api
+    change <- getChangeAddress api
+    reward <- getRewardAddresses api
+    pure
+      { networkId: nid
+      , balance: bal
+      , utxoCount: Array.length utxos
+      , usedAddresses: used
+      , unusedAddresses: unused
+      , changeAddress: change
+      , rewardAddresses: reward
+      }
+  case result of
+    Right info -> H.modify_ _
+      { walletInfo = Just info
+      , status = Just
+          { kind: Success
+          , text: "Wallet connected"
+          }
+      }
+    Left err -> H.modify_ _
+      { status = Just
+          { kind: Error
+          , text:
+              "Failed to load wallet info: "
+                <> show err
+          }
+      }
